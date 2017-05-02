@@ -7,7 +7,8 @@ logging.basicConfig()
 from threading import Thread
 
 class Kazoo:
-    def __init__(self, zoo_ip, self_ip, listener = None):
+    def __init__(self, zoo_ip, self_ip, im_the_leader_listener = None):
+        self.im_the_leader_listener = im_the_leader_listener
         self.status = ""
         self.self_ip = self_ip
         pprint.pprint("starting Kazoo client")
@@ -15,8 +16,6 @@ class Kazoo:
             zoo_ip = '10.0.0.1:2181'
         self.zoo_ip = zoo_ip
         pprint.pprint("zoo_ip: " + zoo_ip)
-        if listener == None:
-            listener = self.my_listener
         self.zoo = KazooClient('10.0.0.1:2181')
         self.zoo.add_listener(self.my_listener)
         self.zoo.start()
@@ -78,6 +77,9 @@ class Kazoo:
         else:
             self.zoo.set('leader_info', self.self_ip)
 
+        if self.im_the_leader_listener != None:
+            self.im_the_leader_listener()
+
     def stop(self):
         self.zoo.stop()
         pprint.pprint("kazoo stopped")
@@ -94,49 +96,3 @@ class Kazoo:
             # Handle being connected/reconnected to Zookeeper
             self.status = "Connection to zookeeper server established"
         pprint.pprint(self.status)
-
-def create_pub(zk):
-    # Ensure a path, create if necessary
-    topic = "topic_default"
-    path = "/pubs/"+topic
-    zk.ensure_path(path)
-
-    # Create a node with data
-    node_id = 2
-    zk.create(path+"/"+str(node_id), b"10.0.0.2")
-
-def get(zk):
-    topic = "topic_default"
-    path = "/pubs/" + topic
-    # Determine if a node exists
-    if zk.exists(path):
-    # Do something
-        print "exists:", path
-
-        # Print the version of a node and its data
-        data, stat = zk.get(path)
-        print("Version: %s, data: %s" % (stat.version, data.decode("utf-8")))
-
-        # List the children
-        children = zk.get_children(path)
-        print("There are %s children with names %s" % (len(children), children))
-        for c in children:
-            data, stat = zk.get(path + "/" + c)
-            print c, " -> ", data.decode("utf-8")
-    else:
-        print "does not exist:", path
-
-# get(zk)
-# create_pub(zk)
-# get(zk)
-
-#zk.stop()
-
-# while raw_input() != "q":
-#     sleep(0.1)
-#     # if ZooState.status != "":
-#     #     print ZooState.status
-#     #     ZooState.status = ""
-#     continue
-#
-# zk.stop()
