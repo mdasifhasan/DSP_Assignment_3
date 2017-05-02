@@ -4,6 +4,7 @@ from time import sleep
 import pprint
 import logging
 logging.basicConfig()
+from threading import Thread
 
 class Kazoo:
     def __init__(self, zoo_ip, self_ip, listener = None):
@@ -23,30 +24,59 @@ class Kazoo:
 
         self.zoo.ensure_path('electionpath')
         self.zoo.create('electionpath/' + self_ip, ephemeral=True)
-        te = self.zoo.get("electionpath/" + self_ip)
-        pprint.pprint(te)
-        election = self.zoo.Election('electionpath', 'test-election')
+        self.election = self.zoo.Election('electionpath', self_ip)
 
-        try:
-            print "before leaderinfo created"
-            te = self.zoo.get("leader_info")
-            pprint.pprint(te)
-        except:
-            election.run(self.my_leader_function)
+        contenders = self.election.contenders()
+        if len(contenders) == 1:
+            if self.zoo.exists("leader_info") != None:
+                self.zoo.delete("leader_info", recursive=True)
+
+        self.im_the_leader = False
+        if self.zoo.exists("leader_info") == None:
+            self.election.run(self.my_leader_function)
         else:
-            print "Leader was found"
+            self.watch_for_leader()
+
+        # @self.zoo.ChildrenWatch("electionpath/")
+        # def watch_children(children):
+        #     if self.im_the_leader:
+        #         return
+        #     print "election path changed, new election is on..!"
+        #     election.run(self.my_leader_function)
+
+    def watch_for_leader(self):
+        leader = self.zoo.get("leader_info")
+        self.leader_ip, stat = leader
+        print "Leader IP: ", self.leader_ip
+        self.zoo.get("electionpath/" + self.leader_ip, watch=self.run_election)
+
+    def run_election(self, event):
+        contenders = self.zoo.get_children('electionpath')
+        if len(contenders) > 1:
+            print "contenders:", contenders
+            if contenders[0] == self.self_ip:
+                print "calling to run election again"
+                self.election.run(self.my_leader_function)
+        else:
+            print "calling to run election again"
+            self.election.run(self.my_leader_function)
+        self.zoo.get("leader_info", watch=self.election_finished)
 
 
-
-
+    def election_finished(self, event):
+        if self.im_the_leader:
+            return
+        self.watch_for_leader()
 
     def my_leader_function(self):
-        print "my_leader_function started"
-        self.zoo.create('leader_info', self.self_ip)
-        print "after leaderinfo created"
-        te = self.zoo.get("leader_info")
-        pprint.pprint(te)
-
+        print "my_leader_function started, ", "im the leader"
+        self.im_the_leader = True
+        self.leader_ip = self.self_ip
+        leader = self.zoo.exists("leader_info")
+        if leader == None:
+            self.zoo.create('leader_info', self.self_ip)
+        else:
+            self.zoo.set('leader_info', self.self_ip)
 
     def stop(self):
         self.zoo.stop()
