@@ -5,7 +5,7 @@ import pprint
 class ZKeventService:
     def __init__(self, self_ip = None, zoo_ip = None, listener = None):
     	pprint.pprint("starting event service")
-    	self.kazoo = Kazoo(zoo_ip)
+    	self.kazoo = Kazoo(zoo_ip, self_ip)
         pprint.pprint("event service started")
 
     def stop(self):

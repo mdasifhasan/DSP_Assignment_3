@@ -2,10 +2,13 @@ from kazoo.client import KazooClient
 from kazoo.client import KazooState
 from time import sleep
 import pprint
+import logging
+logging.basicConfig()
 
 class Kazoo:
-    def __init__(self, zoo_ip = None, listener = None):
+    def __init__(self, zoo_ip, self_ip, listener = None):
         self.status = ""
+        self.self_ip = self_ip
         pprint.pprint("starting Kazoo client")
         if zoo_ip == None:
             zoo_ip = '10.0.0.1:2181'
@@ -17,6 +20,33 @@ class Kazoo:
         self.zoo.add_listener(self.my_listener)
         self.zoo.start()
         pprint.pprint("kazoo started")
+
+        self.zoo.ensure_path('electionpath')
+        self.zoo.create('electionpath/' + self_ip, ephemeral=True)
+        te = self.zoo.get("electionpath/" + self_ip)
+        pprint.pprint(te)
+        election = self.zoo.Election('electionpath', 'test-election')
+
+        try:
+            print "before leaderinfo created"
+            te = self.zoo.get("leader_info")
+            pprint.pprint(te)
+        except:
+            election.run(self.my_leader_function)
+        else:
+            print "Leader was found"
+
+
+
+
+
+    def my_leader_function(self):
+        print "my_leader_function started"
+        self.zoo.create('leader_info', self.self_ip)
+        print "after leaderinfo created"
+        te = self.zoo.get("leader_info")
+        pprint.pprint(te)
+
 
     def stop(self):
         self.zoo.stop()
