@@ -1,25 +1,39 @@
 from kazoo.client import KazooClient
 from kazoo.client import KazooState
 from time import sleep
+import pprint
 
-zk = KazooClient(hosts='10.0.0.1:2181')
+class Kazoo:
+    def __init__(self, zoo_ip = None, listener = None):
+        self.status = ""
+        pprint.pprint("starting Kazoo client")
+        if zoo_ip == None:
+            zoo_ip = '10.0.0.1:2181'
+        self.zoo_ip = zoo_ip
+        pprint.pprint("zoo_ip: " + zoo_ip)
+        if listener == None:
+            listener = self.my_listener
+        self.zoo = KazooClient('10.0.0.1:2181')
+        self.zoo.add_listener(self.my_listener)
+        self.zoo.start()
+        pprint.pprint("kazoo started")
 
-class ZooState:
-    status = ""
-def my_listener(state):
-    if state == KazooState.LOST:
-        # Register somewhere that the session was lost
-        ZooState.status = "Connection to zookeeper server lost"
-    elif state == KazooState.SUSPENDED:
-        # Handle being disconnected from Zookeeper
-        ZooState.status = "Connection to zookeeper server suspended"
-    else:
-        # Handle being connected/reconnected to Zookeeper
-        ZooState.status = "Connection to zookeeper server established"
-    print ZooState.status
-zk.add_listener(my_listener)
-zk.start()
+    def stop(self):
+        self.zoo.stop()
+        pprint.pprint("kazoo stopped")
 
+
+    def my_listener(self, state):
+        if state == KazooState.LOST:
+            # Register somewhere that the session was lost
+            self.status = "Connection to zookeeper server lost"
+        elif state == KazooState.SUSPENDED:
+            # Handle being disconnected from Zookeeper
+            self.status = "Connection to zookeeper server suspended"
+        else:
+            # Handle being connected/reconnected to Zookeeper
+            self.status = "Connection to zookeeper server established"
+        pprint.pprint(self.status)
 
 def create_pub(zk):
     # Ensure a path, create if necessary
@@ -52,17 +66,17 @@ def get(zk):
     else:
         print "does not exist:", path
 
-get(zk)
-create_pub(zk)
-get(zk)
+# get(zk)
+# create_pub(zk)
+# get(zk)
 
 #zk.stop()
 
-while raw_input() != "q":
-    sleep(0.1)
-    # if ZooState.status != "":
-    #     print ZooState.status
-    #     ZooState.status = ""
-    continue
-
-zk.stop()
+# while raw_input() != "q":
+#     sleep(0.1)
+#     # if ZooState.status != "":
+#     #     print ZooState.status
+#     #     ZooState.status = ""
+#     continue
+#
+# zk.stop()
