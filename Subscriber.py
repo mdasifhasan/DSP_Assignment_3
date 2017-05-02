@@ -3,15 +3,46 @@ import time
 from threading import Thread
 from random import randint
 import sys
-
+from kazoo.client import KazooClient
 
 class Subscriber:
     def __init__(self, join_ip, topic = "topic"):
+        self.leader_ip = None
         self.topic = topic
         self.context = zmq.Context()
-        self.event_service_ip = self.register(join_ip)
-        print "EventService ip: ", self.event_service_ip
-        self.subscriber()
+        self.socket = None
+        self.zoo_address = self.register(join_ip)
+        print "Zoo address: ", self.zoo_address
+
+        self.zoo = KazooClient(self.zoo_address)
+        self.zoo.start()
+
+        self.leader_changed = False
+
+        self.zoo.get("leader_info", watch=self.watch_leader)
+
+        if self.zoo.exists("leader_info") != None:
+            leader = self.zoo.get("leader_info")
+            self.event_service_ip, stat = leader
+            print
+            "Leader IP: ", self.event_service_ip
+            self.leader_changed = True
+            if self.socket != None:
+                self.socket.close()
+            self.subscriber()
+
+    def watch_leader(self, event):
+        if self.zoo.exists("leader_info") != None:
+            leader = self.zoo.get("leader_info")
+            self.event_service_ip, stat = leader
+            print
+            "Leader IP: ", self.event_service_ip
+            self.zoo.get("leader_info", watch=self.watch_leader)
+            self.leader_changed = True
+            if self.socket != None:
+                self.socket.close()
+            self.subscriber()
+
 
     def register(self, ip):
         socket = self.context.socket(zmq.REQ)

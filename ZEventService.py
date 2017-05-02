@@ -8,6 +8,7 @@ import time
 class ZKeventService:
     def __init__(self, self_ip = None, zoo_ip = None, listener = None):
         self.ip = self_ip
+        self.zoo_address = '10.0.0.1:2181'
 
     	pprint.pprint("starting event service")
     	self.kazoo = Kazoo(zoo_ip, self_ip, self.im_the_leader_listener)
@@ -56,7 +57,7 @@ class ZKeventService:
     def server_callback(self, msg):
         topic = msg
         if topic == "register":
-            return self.kazoo.leader_ip
+            return self.zoo_address
 
 
     def broker(self):
